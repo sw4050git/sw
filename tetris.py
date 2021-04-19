@@ -47,6 +47,7 @@ class TetrisBlock():
         else:
             return x,y
 
+
 class TetrisCanvas(tk.Canvas):
     def __init__(self, master ,field):
         canvas_w = field.get_w() * BLOCK_SIZE
@@ -54,7 +55,7 @@ class TetrisCanvas(tk.Canvas):
 
         super().__init__(master, width=canvas_w, height=canvas_h, bg="white")
 
-        self.pack()
+        self.grid(column=2,row=0 , rowspan=20)
 
         for y in range(field.get_h()):
             for x in range(field.get_w()):
@@ -105,6 +106,97 @@ class TetrisCanvas(tk.Canvas):
                 self.create_rectangle(x1, y1, x2, y2,outline="white", width=1, fill=new_color)
 
         self.before_field = new_field
+
+class NextMinoCanvas(tk.Canvas):
+    def __init__(self,master,num):
+        canvas_w = 5 * BLOCK_SIZE 
+        canvas_h = 4 * BLOCK_SIZE
+        
+        super().__init__(master, width=canvas_w, height=canvas_h, bg="gray95")
+
+        self.grid(column=3,row=num,sticky=tk.N)
+
+
+        for y in range(4):
+            for x in range(5):
+                x1 = x*BLOCK_SIZE
+                x2 = (x+1)*BLOCK_SIZE
+                y1 = y*BLOCK_SIZE
+                y2 = (y+1)*BLOCK_SIZE
+                self.create_rectangle(x1,y1,x2,y2,outline="gray95",width=1,fill="gray95")
+
+    def update(self,mino):
+
+        mino_cords = []
+        if mino is not None:
+            mino_blocks = mino.get_blocks()
+            for mino_block in mino_blocks:
+
+                x,y = mino_block.get_cord()
+                mino_cords.append((x-FIELD_WIDTH/2+2,y+1))
+                color = mino_block.get_color()
+
+        for y in range(4):
+            for x in range(5):
+
+                l = (x,y)
+                x1 = x * BLOCK_SIZE
+                x2 = (x + 1) * BLOCK_SIZE
+                y1 = y * BLOCK_SIZE
+                y2 = (y + 1) * BLOCK_SIZE
+                # フィールドの各位置の色で長方形描画
+                if l in mino_cords:
+                    self.create_rectangle(x1, y1, x2, y2,outline="white", width=1, fill=color)
+                else:
+                    self.create_rectangle(x1, y1, x2, y2,outline="gray95", width=1, fill="gray95")
+
+class HoldMinoCanvas(tk.Canvas):
+    def __init__(self,master):
+        self.holding_mino = None
+        canvas_w = 5 * BLOCK_SIZE 
+        canvas_h = 4 * BLOCK_SIZE
+        
+        super().__init__(master, width=canvas_w, height=canvas_h, bg="gray95")
+
+        self.grid(column=1,row=0,sticky=tk.N)
+
+        for y in range(4):
+            for x in range(5):
+                x1 = x*BLOCK_SIZE
+                x2 = (x+1)*BLOCK_SIZE
+                y1 = y*BLOCK_SIZE
+                y2 = (y+1)*BLOCK_SIZE
+                self.create_rectangle(x1,y1,x2,y2,outline="gray95",width=1,fill="gray95")
+
+    def get_holding_mino(self):
+        return self.holding_mino
+
+    def update(self,mino):
+        self.holding_mino = mino
+        mino_cords = []
+        if mino is not None:
+            mino_blocks = mino.get_blocks()
+            for mino_block in mino_blocks:
+                color = mino_block.get_color()
+            for cords in mino.cords:
+                x,y = cords
+                mino_cords.append((x-FIELD_WIDTH/2+2,y+1))
+
+
+        for y in range(4):
+            for x in range(5):
+
+                l = (x,y)
+                x1 = x * BLOCK_SIZE
+                x2 = (x + 1) * BLOCK_SIZE
+                y1 = y * BLOCK_SIZE
+                y2 = (y + 1) * BLOCK_SIZE
+                # フィールドの各位置の色で長方形描画
+                if l in mino_cords:
+                    self.create_rectangle(x1, y1, x2, y2,outline="white", width=1, fill=color)
+                else:
+                    self.create_rectangle(x1, y1, x2, y2,outline="gray95", width=1, fill="gray95")
+
 
 class TetrisField():
     def __init__(self):
@@ -191,21 +283,22 @@ class TetrisMino():
     def __init__(self, mino_type):
         self.blocks = []
         self.center_cord = []
+        self.cords = []
 
         if mino_type == 1:
             color = "cyan"
-            self.center_cord = [FIELD_WIDTH / 2-0.5,0.5]
-            cords = [
-                [FIELD_WIDTH / 2-2,0],
-                [FIELD_WIDTH / 2-1, 0],
+            self.center_cord = [FIELD_WIDTH / 2+1-0.5,0.5]
+            self.cords = [
+                [FIELD_WIDTH / 2-1,0],
                 [FIELD_WIDTH / 2, 0],
                 [FIELD_WIDTH / 2+1, 0],
+                [FIELD_WIDTH / 2+2, 0],
             ]
 
         elif mino_type == 2:
             color = "yellow"
             self.center_cord = [FIELD_WIDTH / 2-0.5,0.5]
-            cords = [
+            self.cords = [
                 [FIELD_WIDTH / 2,0],
                 [FIELD_WIDTH / 2, 1],
                 [FIELD_WIDTH / 2-1, 0],
@@ -215,7 +308,7 @@ class TetrisMino():
         elif mino_type == 3:
             color = "orange"
             self.center_cord = [FIELD_WIDTH / 2,1]
-            cords = [
+            self.cords = [
                 [FIELD_WIDTH / 2-1,1],
                 [FIELD_WIDTH / 2, 1],
                 [FIELD_WIDTH / 2+1, 1],
@@ -225,7 +318,7 @@ class TetrisMino():
         elif mino_type == 4:
             color = "blue"
             self.center_cord = [FIELD_WIDTH / 2,1]
-            cords = [
+            self.cords = [
                 [FIELD_WIDTH / 2-1,1],
                 [FIELD_WIDTH / 2, 1],
                 [FIELD_WIDTH / 2+1, 1],
@@ -235,7 +328,7 @@ class TetrisMino():
         elif mino_type == 5:
             color = "green"
             self.center_cord = [FIELD_WIDTH / 2,1]
-            cords = [
+            self.cords = [
                 [FIELD_WIDTH / 2, 0],
                 [FIELD_WIDTH / 2, 1],
                 [FIELD_WIDTH / 2+1, 0],
@@ -245,7 +338,7 @@ class TetrisMino():
         elif mino_type == 6:
             color = "red"
             self.center_cord = [FIELD_WIDTH / 2,1]
-            cords = [
+            self.cords = [
                 [FIELD_WIDTH / 2, 0],
                 [FIELD_WIDTH / 2, 1],
                 [FIELD_WIDTH / 2+1, 1],
@@ -255,14 +348,14 @@ class TetrisMino():
         elif mino_type == 7:
             color = "magenta"
             self.center_cord = [FIELD_WIDTH / 2,1]
-            cords = [
+            self.cords = [
                 [FIELD_WIDTH / 2, 0],
                 [FIELD_WIDTH / 2, 1],
                 [FIELD_WIDTH / 2+1, 1],
                 [FIELD_WIDTH / 2-1, 1],
             ]
 
-        for cord in cords:
+        for cord in self.cords:
             self.blocks.append(TetrisBlock(cord[0],cord[1],color))
 
     def get_blocks(self):
@@ -285,10 +378,16 @@ class TetrisGame():
     
     def __init__(self,master):
         self.field = TetrisField()
-        self.next_mino_container = []
         self.mino_container = []
+        self.second_mino_container = []
         self.mino = None
+        self.next_mino = None
+        self.next_next_mino = None
+        self.able_hold = True
         self.canvas = TetrisCanvas(master, self.field)
+        self.next_mino_canvas = NextMinoCanvas(master,0)
+        self.next_next_mino_canvas = NextMinoCanvas(master,1)
+        self.hold_mino_canvas = HoldMinoCanvas(master)
         self.canvas.update(self.field, self.mino)
         self.create_mino_container()
 
@@ -301,10 +400,37 @@ class TetrisGame():
         if len(self.mino_container) == 0:
             self.create_mino_container()
         self.mino = TetrisMino(self.mino_container.pop(0))
+        self.set_next_mino()
         if self.field.judge_game_over(self.mino):
             self.end_func()
             print("GAMEOVER")
         self.canvas.update(self.field, self.mino)
+        self.next_mino_canvas.update(self.next_mino)
+        self.next_next_mino_canvas.update(self.next_next_mino)
+
+    def hold_mino(self):
+        if self.able_hold is True:
+            self.able_hold = False
+            if self.hold_mino_canvas.get_holding_mino() is None:
+                self.hold_mino_canvas.update(self.mino)
+                self.new_mino()
+            else:
+                new_mino = self.hold_mino_canvas.get_holding_mino()
+                self.hold_mino_canvas.update(self.mino)
+                self.mino = new_mino
+                self.canvas.update(self.field, self.mino)
+
+
+    def set_next_mino(self):
+        if len(self.mino_container) == 0:
+            self.next_mino = TetrisMino(self.second_mino_container[0])
+            self.next_next_mino = TetrisMino(self.second_mino_container[1])
+        elif len(self.mino_container) == 1:
+            self.next_mino = TetrisMino(self.mino_container[0])
+            self.next_next_mino = TetrisMino(self.second_mino_container[0])
+        else:
+            self.next_mino = TetrisMino(self.mino_container[0])
+            self.next_next_mino = TetrisMino(self.mino_container[1])
 
     def move_block(self, direction):
         if self.field.judge_can_move(self.mino, direction):
@@ -314,14 +440,15 @@ class TetrisGame():
             if direction == MOVE_DOWN:
                 self.field.fix_mino(self.mino)
                 self.field.delete_line()
+                self.able_hold = True
                 self.new_mino()
 
     def create_mino_container(self):
         container = [1,2,3,4,5,6,7]
-        if len(self.next_mino_container) == 0:
-            self.next_mino_container = random.sample(container,7)
-        self.mino_container = self.next_mino_container
-        self.next_mino_container = random.sample(container,7)
+        if len(self.second_mino_container) == 0:
+            self.second_mino_container = random.sample(container,7)
+        self.mino_container = self.second_mino_container
+        self.second_mino_container = random.sample(container,7)
 
 
 class EventHandller():
@@ -344,6 +471,7 @@ class EventHandller():
         self.master.bind("<KeyPress-s>", self.down_key_event)
         self.master.bind("<KeyPress-f>", self.leftspin_key_event)
         self.master.bind("<KeyPress-r>", self.rightspin_key_event)
+        self.master.bind("<KeyPress-e>", self.hold_key_event)
 
     def end_event(self):
         self.running = False
@@ -355,6 +483,7 @@ class EventHandller():
         self.master.unbind("<KeyPress-s>")
         self.master.unbind("<KeyPress-f>")
         self.master.unbind("<KeyPress-r>")
+        self.master.unbind("<KeyPress-e>")
 
     def timer_end(self):
 
@@ -385,6 +514,9 @@ class EventHandller():
 
     def rightspin_key_event(self, event):
         self.game.move_block(SPIN_RIGHT)
+
+    def hold_key_event(self, event):
+        self.game.hold_mino()
     
     def timer_event(self):
         self.down_key_event(None)
@@ -392,7 +524,7 @@ class EventHandller():
 class Application(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
-        self.master.geometry("400x600")
+        self.master.geometry("600x600")
         self.master.title("テトリス")
         game = TetrisGame(self)
         EventHandller(self.master, game)
