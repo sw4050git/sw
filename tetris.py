@@ -116,7 +116,6 @@ class NextMinoCanvas(tk.Canvas):
 
         self.grid(column=3,row=num,sticky=tk.N)
 
-
         for y in range(4):
             for x in range(5):
                 x1 = x*BLOCK_SIZE
@@ -284,6 +283,7 @@ class TetrisMino():
         self.blocks = []
         self.center_cord = []
         self.cords = []
+        self.mino_type = mino_type
 
         if mino_type == 1:
             color = "cyan"
@@ -417,7 +417,7 @@ class TetrisGame():
             else:
                 new_mino = self.hold_mino_canvas.get_holding_mino()
                 self.hold_mino_canvas.update(self.mino)
-                self.mino = new_mino
+                self.mino = TetrisMino(new_mino.mino_type)
                 self.canvas.update(self.field, self.mino)
 
 
