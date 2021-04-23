@@ -31,22 +31,64 @@ class TetrisBlock():
     def get_color(self):
         return self.color
 
-    def get_moved_cord(self, direction, center_cord):
+    def get_moved_cord(self, direction, mino, count):
+        mino_type = mino.mino_type
         x,y = self.get_cord()
-        cx,cy = center_cord[0],center_cord[1]
+        cx,cy = mino.center_cord[0],mino.center_cord[1]
         if direction == MOVE_LEFT:
             return x-1,y
         elif direction == MOVE_RIGHT:
             return x+1,y
         elif direction == MOVE_DOWN:
             return x,y+1
-        elif direction == SPIN_LEFT:
-            return int(cy+cx-y),int(cy-cx+x)
-        elif direction == SPIN_RIGHT:
-            return int(cx-cy+y),int(cx+cy-x)
+        elif direction == SPIN_LEFT or direction == SPIN_RIGHT:
+            return self.get_span_cord(direction, mino, count)
         else:
             return x,y
 
+    def get_span_cord(self, direction, mino, count):
+        mino_type = mino.mino_type
+        spin_amount = mino.spin_amount
+        cx,cy = mino.center_cord[0],mino.center_cord[1]
+        x,y = self.get_cord()
+        if direction ==SPIN_LEFT:
+            x,y = int(cy+cx-y),int(cy-cx+x)
+        elif direction ==SPIN_RIGHT:
+            x,y = int(cx-cy+y),int(cx+cy-x)
+        if count == 0:
+            return x, y
+        elif count < 3:
+            if spin_amount == 0:
+                x -= 1
+            elif spin_amount == 180:
+                x += 1
+            else:
+                if direction ==SPIN_LEFT:
+                    x += 1
+                elif direction == SPIN_RIGHT:
+                    x -= 1
+            if count ==2:
+                if spin_amount == 0 or spin_amount == 180:
+                    y += 1
+                else:
+                    y -= 1
+            return x,y
+        else:
+            if spin_amount == 0 or spin_amount == 180:
+                y += 2
+            else:
+                y -=2
+            if count ==4:
+                if spin_amount == 0:
+                    x -= 1
+                elif spin_amount == 180:
+                    x += 1
+                else:
+                    if direction ==SPIN_LEFT:
+                        x += 1
+                    elif direction == SPIN_RIGHT:
+                        x -= 1
+            return x,y
 
 class TetrisCanvas(tk.Canvas):
     def __init__(self, master ,field):
@@ -70,7 +112,8 @@ class TetrisCanvas(tk.Canvas):
 
     def update(self,field, mino):
         new_field = TetrisField()
-        for y in range(field.get_h()):
+
+        for y in range(field.get_h()): #前のフィールドの情報を取得し、新フィールドに適用
             for x in range(field.get_w()):
                 block = field.get_block(x,y)
                 color = block.get_color()
@@ -78,7 +121,7 @@ class TetrisCanvas(tk.Canvas):
                 new_block = new_field.get_block(x,y)
                 new_block.set_color(color)
 
-        if mino is not None:
+        if mino is not None: #操作中ミノの情報を取得し、新フィールドに適用
             mino_blocks = mino.get_blocks()
             for mino_block in mino_blocks:
 
@@ -88,7 +131,7 @@ class TetrisCanvas(tk.Canvas):
                 new_field_block = new_field.get_block(x, y)
                 new_field_block.set_color(color)
 
-        for y in range(field.get_h()):
+        for y in range(field.get_h()): #全フィールドと新フィールドの差分を描画しなおす
             for x in range(field.get_w()):
                 new_block = new_field.get_block(x,y)
                 new_color = new_block.get_color()
@@ -111,7 +154,7 @@ class NextMinoCanvas(tk.Canvas):
     def __init__(self,master,num):
         canvas_w = 5 * BLOCK_SIZE 
         canvas_h = 4 * BLOCK_SIZE
-        
+
         super().__init__(master, width=canvas_w, height=canvas_h, bg="gray95")
 
         self.grid(column=3,row=num,sticky=tk.N)
@@ -196,7 +239,6 @@ class HoldMinoCanvas(tk.Canvas):
                 else:
                     self.create_rectangle(x1, y1, x2, y2,outline="gray95", width=1, fill="gray95")
 
-
 class TetrisField():
     def __init__(self):
         self.w = FIELD_WIDTH
@@ -234,22 +276,31 @@ class TetrisField():
 
         return ret
 
-    def judge_can_move(self, mino, direction):
+    def judge_can_move(self, mino, direction , count):
         no_empty_cord = set(block.get_cord() for block in self.get_blocks() 
                                             if block.get_color() != "gray")
 
-        move_mino_cord = set(block.get_moved_cord(direction,mino.center_cord) for block in mino.get_blocks())
+        moved_mino_cords = []
+        for block in mino.get_blocks():
+            moved_mino_cords.append(block.get_moved_cord(direction, mino, count))
 
-        for x,y in move_mino_cord:
-            if x < 0 or x >= self.w or y < 0 or y >= self.h:
-                return False
+        moved_mino_cords_set = set(moved_mino_cords)
 
-        collision_set = no_empty_cord & move_mino_cord
+        for x,y in moved_mino_cords:
+            if x < 0 or x >= self.w or y < 0 or y >= self.h :
+                if count > 4:
+                    return None
+                return self.judge_can_move(mino, direction, count+1)
+
+        collision_set = no_empty_cord & moved_mino_cords_set
 
         if len(collision_set) == 0:
-            ret = True
+            ret = moved_mino_cords
         else:
-            ret = False
+            if (direction == SPIN_LEFT or direction == SPIN_RIGHT) and (count <= 4):
+                ret = self.judge_can_move(mino, direction, count+1)
+            else:
+                ret = None
 
         return ret
 
@@ -284,10 +335,11 @@ class TetrisMino():
         self.center_cord = []
         self.cords = []
         self.mino_type = mino_type
+        self.spin_amount = 0
 
         if mino_type == 1:
             color = "cyan"
-            self.center_cord = [FIELD_WIDTH / 2+1-0.5,0.5]
+            self.center_cord = [FIELD_WIDTH / 2+0.5,0.5]
             self.cords = [
                 [FIELD_WIDTH / 2-1,0],
                 [FIELD_WIDTH / 2, 0],
@@ -360,19 +412,53 @@ class TetrisMino():
 
     def get_blocks(self):
         return self.blocks
-    
-    def move(self, direction):
-        cx,cy = self.center_cord
-        for block in self.blocks:
-            x,y = block.get_moved_cord(direction, self.center_cord)
-            block.set_cord(x,y)
-        if direction == MOVE_LEFT:
-            self.center_cord = [cx-1,cy] 
-        elif direction == MOVE_RIGHT:
-            self.center_cord = [cx+1,cy] 
-        elif direction == MOVE_DOWN:
-            self.center_cord = [cx,cy+1]
 
+    def get_mino_type(self):
+        return self.mino_type
+    
+    def change_spin_amount(self, direction):
+        if direction == SPIN_LEFT:
+            if self.spin_amount < 360:
+                self.spin_amount += 90
+            else:
+                self.spin_amount = 0
+        elif direction == SPIN_RIGHT:
+            if self.spin_amount <=0:
+                self.spin_amount = 270
+            else:
+                self.spin_amount -= 90
+
+    def move(self, direction, moved_cords):
+        self.change_spin_amount(direction)
+        for block in self.blocks:
+            x,y = moved_cords.pop(0)
+            block.set_cord(x,y)
+        self.update_center_cord()
+
+    def update_center_cord(self):
+        if self.mino_type == 1:
+            tx,ty = 0,0
+            for block in self.blocks:
+                x,y = block.get_cord()
+                tx += x
+                ty += y
+            if self.spin_amount == 0:
+                self.center_cord = tx/4,ty/4+0.5
+            elif self.spin_amount == 90:
+                self.center_cord = tx/4-0.5,ty/4
+            elif self.spin_amount == 180:
+                self.center_cord = tx/4,ty/4-0.5
+            else:
+                self.center_cord = tx/4+0.5,ty/4
+        elif self.mino_type == 2:
+            tx,ty = 0,0
+            for block in self.blocks:
+                x,y = block.get_cord()
+                tx += x
+                ty += y
+            self.center_cord = tx/4,ty/4
+        else:
+            self.center_cord = self.blocks[1].get_cord()
 
 class TetrisGame():
     
@@ -420,7 +506,6 @@ class TetrisGame():
                 self.mino = TetrisMino(new_mino.mino_type)
                 self.canvas.update(self.field, self.mino)
 
-
     def set_next_mino(self):
         if len(self.mino_container) == 0:
             self.next_mino = TetrisMino(self.second_mino_container[0])
@@ -433,8 +518,9 @@ class TetrisGame():
             self.next_next_mino = TetrisMino(self.mino_container[1])
 
     def move_block(self, direction):
-        if self.field.judge_can_move(self.mino, direction):
-            self.mino.move(direction)
+        moved_cords = self.field.judge_can_move(self.mino, direction, 0)
+        if moved_cords is not None:
+            self.mino.move(direction, moved_cords)
             self.canvas.update(self.field, self.mino)
         else:
             if direction == MOVE_DOWN:
@@ -442,6 +528,8 @@ class TetrisGame():
                 self.field.delete_line()
                 self.able_hold = True
                 self.new_mino()
+                return False
+        return True
 
     def create_mino_container(self):
         container = [1,2,3,4,5,6,7]
@@ -449,7 +537,6 @@ class TetrisGame():
             self.second_mino_container = random.sample(container,7)
         self.mino_container = self.second_mino_container
         self.second_mino_container = random.sample(container,7)
-
 
 class EventHandller():
     def __init__(self, master, game):
@@ -472,6 +559,7 @@ class EventHandller():
         self.master.bind("<KeyPress-f>", self.leftspin_key_event)
         self.master.bind("<KeyPress-r>", self.rightspin_key_event)
         self.master.bind("<KeyPress-e>", self.hold_key_event)
+        self.master.bind("<KeyPress-w>", self.harddrop_key_event)
 
     def end_event(self):
         self.running = False
@@ -507,6 +595,12 @@ class EventHandller():
 
     def down_key_event(self, event):
         self.game.move_block(MOVE_DOWN)
+        self.timer_start()
+
+    def harddrop_key_event(self, event):
+        a = True
+        while a is True:
+            a = self.game.move_block(MOVE_DOWN)
         self.timer_start()
 
     def leftspin_key_event(self, event):
